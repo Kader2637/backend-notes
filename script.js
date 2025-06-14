@@ -1,81 +1,89 @@
-const api = "/api"; // dialihkan via netlify.toml
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-// Generate kartu catatan dengan Tailwind
-function cardTemplate(item) {
+// ★ ganti ke kredensialmu sendiri
+const supabase = createClient(
+    'https://gfdkeutgojqefygoxnow.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmZGtldXRnb2pxZWZ5Z294bm93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4Mjk5NDksImV4cCI6MjA2NTQwNTk0OX0.vWQ70YA7egXTLg8glagWKhhjmIqpohxByA5Vgnv_eMk'
+  );
+
+
+const TABLE = "catatan";           
+const idEl  = document.getElementById("id");
+const judul = document.getElementById("judul");
+const tanggal = document.getElementById("tanggal");
+const desk = document.getElementById("deskripsi");
+const list = document.getElementById("hasil");
+const modal = document.getElementById("modal-hapus");
+const btnOK = document.getElementById("konfirmasi-hapus");
+
+let idHapus = null;
+
+/* ---------------- simpan / update ---------------- */
+window.simpanCatatan = async () => {
+  const payload = {
+    judul: judul.value,
+    tanggal: tanggal.value,
+    deskripsi: desk.value
+  };
+
+  if (idEl.value) {
+    await supabase.from(TABLE).update(payload).eq("id", idEl.value);
+  } else {
+    await supabase.from(TABLE).insert(payload);
+  }
+
+  idEl.value = "";
+  judul.value = tanggal.value = desk.value = "";
+  loadData();
+};
+
+/* ---------------- tampil data ---------------- */
+function card({id, judul, tanggal, deskripsi}) {
   return `
-    <div class="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500 relative group transition hover:shadow-lg">
-      <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-1">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-        ${item.judul}
-      </h3>
-      <p class="text-sm text-gray-500 mb-2">${item.tanggal}</p>
-      <p class="text-gray-700">${item.deskripsi}</p>
-      <div class="mt-4 flex gap-2">
-        <button onclick='edit(${JSON.stringify(item)})'
-          class="px-3 py-1 bg-yellow-400 hover:bg-yellow-500 text-white rounded text-sm transition">
-          ✏️ Edit
-        </button>
-        <button onclick='confirmHapus(${item.id})'
-          class="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-sm transition">
-          🗑️ Hapus
-        </button>
-      </div>
-    </div>`;
+  <div class="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500 hover:shadow-lg">
+    <h3 class="text-lg font-semibold flex items-center gap-1 text-gray-800">
+      <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+      </svg>${judul}
+    </h3>
+    <p class="text-xs text-gray-500 mb-1">${tanggal}</p>
+    <p class="text-gray-700">${deskripsi}</p>
+    <div class="mt-3 flex gap-2">
+      <button onclick="isiForm(${id})"
+              class="px-3 py-1 bg-yellow-400 hover:bg-yellow-500 text-white rounded text-sm">✏️ Edit</button>
+      <button onclick="confirmHapus(${id})"
+              class="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-sm">🗑️ Hapus</button>
+    </div>
+  </div>`;
 }
 
 async function loadData() {
-  const res = await fetch(`${api}/read`);
-  const data = await res.json();
-  const container = document.getElementById("hasil");
-  container.innerHTML = data.length ? "" : `<p class="text-gray-500 text-center">Belum ada catatan.</p>`;
-  data.forEach(item => container.innerHTML += cardTemplate(item));
+  const { data, error } = await supabase.from(TABLE).select("*").order("id", { ascending: false });
+  list.innerHTML = error
+    ? "<p class='text-red-500'>Gagal memuat data</p>"
+    : data.length
+        ? data.map(card).join("")
+        : "<p class='text-gray-500 text-center'>Belum ada catatan.</p>";
 }
+loadData();
 
-// Submit form (create / update)
-document.getElementById("form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const id = document.getElementById("id").value;
-  const payload = {
-    id,
-    judul: document.getElementById("judul").value,
-    tanggal: document.getElementById("tanggal").value,
-    deskripsi: document.getElementById("deskripsi").value,
-  };
-  const url = id ? `${api}/update` : `${api}/create`;
-  await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  e.target.reset();
+/* -------------- isi form untuk edit -------------- */
+window.isiForm = async id => {
+  const { data } = await supabase.from(TABLE).select("*").eq("id", id).single();
+  idEl.value = data.id;
+  judul.value = data.judul;
+  tanggal.value = data.tanggal;
+  desk.value = data.deskripsi;
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
+
+/* -------------- hapus dengan modal -------------- */
+window.confirmHapus = id => { idHapus = id; modal.classList.remove("hidden"); };
+window.tutupModal   = () => { modal.classList.add("hidden"); idHapus = null; };
+
+btnOK.onclick = async () => {
+  if (!idHapus) return;
+  await supabase.from(TABLE).delete().eq("id", idHapus);
+  tutupModal();
   loadData();
-});
-
-// Prefill form untuk edit
-function edit(item) {
-  document.getElementById("id").value = item.id;
-  document.getElementById("judul").value = item.judul;
-  document.getElementById("tanggal").value = item.tanggal;
-  document.getElementById("deskripsi").value = item.deskripsi;
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-// Modal konfirmasi hapus sederhana (native confirm)
-function confirmHapus(id) {
-  if (confirm('Yakin ingin menghapus catatan ini?')) {
-    hapus(id);
-  }
-}
-
-// Hapus catatan
-async function hapus(id) {
-  await fetch(`${api}/delete`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id }),
-  });
-  loadData();
-}
-
-// Inisialisasi
-document.addEventListener('DOMContentLoaded', loadData);
+};

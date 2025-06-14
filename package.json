@@ -1,8 +1,0 @@
-{
-    "name": "catatan-crud",
-    "version": "1.0.0",
-    "dependencies": {
-      "@supabase/supabase-js": "^2.41.3"
-    }
-  }
-  
